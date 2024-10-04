@@ -1,0 +1,214 @@
+<html>
+<body>
+<div>
+  <strong>Output:</strong>
+  <select id="paper">
+    <option value="a4">A4</option>
+    <option value="a5">A5</option>
+    <option value="letter" selected="selected">US Letter</option>
+    <option value="halfletter">Half Letter</option>
+  </select>
+</div>
+<div>
+  <strong>Units:</strong>
+  <select id="units">
+    <option value="72">inches</option>
+    <option value="2.83465" selected="selected">mm</option>
+  </select>
+</div>
+<div>
+  <strong>Margin</strong>
+  left: <input id="marginL" type="text" maxlength="5" value="5" style="width:30px"/>
+  top: <input id="marginT" type="text" maxlength="5" value="5" style="width:30px"/>
+  right: <input id="marginR" type="text" maxlength="5" value="5" style="width:30px"/>
+  bottom: <input id="marginB" type="text" maxlength="5" value="5" style="width:30px"/>
+</div>
+<div>
+  <strong>Dot</strong>
+    size: <input id="dsize" type="text" maxlength="5" value="0.25" style="width:60px"/>
+    spacing: <input id="dspace" type="text" maxlength="5" value="5" style="width:60px"/>
+    opacity: <input id="dgray" type="number" min="0.1" max="1.0" step="0.1" value="0.5"/>
+</div>
+<div>
+  <strong>Mirrored second page</strong> <input id="twosided" type="checkbox"/>
+
+<div>
+<a id="download" download="dotgrid.pdf">Download</a>
+</div>
+<script>
+
+function pdf(mleft, mright, mtop, mbot, width, height, gray, radius, spacing) {
+  t = `%PDF-1.2 
+1 0 obj
+<<
+/Pages 2 0 R
+/Type /Catalog
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/MediaBox [ 0 0 ${width} ${height} ]
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/Contents 4 0 R
+>>
+endobj
+4 0 obj << >>
+`
+  hspace = width - mleft - mright
+  hoffset = mleft + (hspace % spacing / 2)
+  hdots = Math.trunc(hspace / spacing) + 1
+  vspace = height - mtop - mbot
+  voffset = mbot + (vspace % spacing / 2)
+  vdots = Math.trunc(vspace / spacing) + 1
+  t += dotStream(gray, radius, spacing, hoffset, voffset, hdots, vdots)
+  t += `endobj
+trailer
+<</Root 1 0 R>>
+%%EOF
+`
+  return t
+}
+function twoSidedPdf(mleft, mright, mtop, mbot, width, height, gray, radius, spacing) {
+  t = `%PDF-1.2 
+1 0 obj
+<<
+/Pages 2 0 R
+/Type /Catalog
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/MediaBox [ 0 0 ${width} ${height} ]
+/Kids [3 0 R 5 0 R]
+/Count 2
+>>
+endobj
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/Contents 4 0 R
+>>
+endobj
+4 0 obj << >>
+`
+  hspace = width - mleft - mright
+  hoffset = mleft + (hspace % spacing / 2)
+  hdots = Math.trunc(hspace / spacing) + 1
+  vspace = height - mtop - mbot
+  voffset = mbot + (vspace % spacing / 2)
+  vdots = Math.trunc(vspace / spacing) + 1
+  t += dotStream(gray, radius, spacing, hoffset, voffset, hdots, vdots)
+  t += `endobj
+5 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/Contents 6 0 R
+>>
+endobj
+6 0 obj << >>
+`
+  hoffset = mright + (hspace % spacing / 2)
+  t += dotStream(gray, radius, spacing, hoffset, voffset, hdots, vdots)
+  t += `endobj 
+trailer
+<</Root 1 0 R>>
+%%EOF
+`
+  return t
+}
+
+function dotStream(gray, radius, spacing, hoffset, voffset, hdots, vdots) {
+  t = `stream
+q
+${gray} g
+`
+  unitcircle = `1 0 m
+1 0.55228475 0.55228475 1 0 1 c
+-0.55228475 1 -1 0.55228475 -1 0 c
+-1 -0.55228475 -0.55228475 -1 0 -1 c
+0.55228475 -1 1 -0.55228475 1 0 c
+f
+`
+  rStr = radius.toString()
+  for (let x = 0; x < hdots; ++x) {
+    for (let y = 0; y < vdots; ++y) {
+      t += "q\n"
+      t += rStr + " 0 0 " + rStr + " "
+      t += (hoffset + spacing * x).toString() + " "
+      t += (voffset + spacing * y).toString() + " cm\n"
+      t += unitcircle
+      t += "Q\n"
+    }
+  }
+  t += `Q
+endstream
+`
+  return t
+}
+
+function updateValue() {
+  scale = parseFloat(document.getElementById("units").value)
+  ml = parseFloat(document.getElementById("marginL").value) * scale
+  mr = parseFloat(document.getElementById("marginR").value) * scale
+  mt = parseFloat(document.getElementById("marginT").value) * scale
+  mb = parseFloat(document.getElementById("marginB").value) * scale
+  dgray = parseFloat(document.getElementById("dgray").value)
+  dsize = parseFloat(document.getElementById("dsize").value) * scale
+  dspace = parseFloat(document.getElementById("dspace").value) * scale
+  switch (document.getElementById("paper").value) {
+  case "a4":
+    width = 595.28
+    height = 841.89
+    break;
+  case "a5":
+    width = 420.94
+    height = 595.28
+    break;
+  case "letter":
+    width = 612
+    height = 792
+    break;
+  case "halfletter":
+    width = 396
+    height = 612
+    break;
+  }
+  twosided = document.getElementById("twosided").checked
+  if (twosided) {
+    t = twoSidedPdf(ml, mr, mt, mb,
+            width, height,
+            dgray, dsize, dspace)
+  } else {
+    t = pdf(ml, mr, mt, mb,
+            width, height,
+            dgray, dsize, dspace)
+  }
+  document.getElementById("download").setAttribute("href",
+    "data:text/plain;charset=utf-8," + encodeURIComponent(t))
+}
+
+let inputs = ["paper", "units",
+              "marginL", "marginR", "marginT", "marginB",
+              "dsize", "dspace", "dgray",
+              "twosided"]
+for (let i = 0; i < inputs.length; ++i) {
+  const input = document.getElementById(inputs[i]);
+  input.addEventListener("change", updateValue);
+}
+
+updateValue()
+
+</script>
+</body>
+</html>
